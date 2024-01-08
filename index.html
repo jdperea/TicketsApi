@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestión de Tickets</title>
+<style>
+  body { font-family: Arial, sans-serif; }
+  .container { width: 80%; margin: auto; }
+  form { margin-bottom: 20px; }
+  input, button { margin: 5px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  th, td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+  }
+  th {
+    background-color: #f2f2f2;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Gestión de Tickets</h1>
+
+  <!-- Formulario para crear un nuevo ticket -->
+  <form id="newTicketForm">
+    <input type="text" id="user" placeholder="Usuario" required>
+    <select id="status" title="Seleccionar Estatus" required>
+        <option value="">Seleccionar estatus</option>
+        <option value="abierto">Abierto</option>
+        <option value="cerrado">Cerrado</option>
+    </select>
+    <button type="submit">Crear Ticket</button>
+  </form>
+
+  <!-- Formulario para filtrar tickets por usuario -->
+  <form id="filterForm">
+    <input type="text" id="filterUser" placeholder="Filtrar por usuario">
+    <button type="button" onclick="filterTickets()">Filtrar</button>
+  </form>
+
+  <!-- Lista de tickets -->
+  <div id="ticketsList"></div>
+
+  <!-- Paginación -->
+  <div id="pagination">
+    <button onclick="changePage(-1)">Anterior</button>
+    <span id="currentPage">1</span>
+    <button onclick="changePage(1)">Siguiente</button>
+  </div>
+</div>
+
+<script>
+  let currentPage = 1;
+  let totalPages = 1; // total de páginas que retorna el get
+  const limit = 10; // Cantidad de registros en el paginador
+
+  document.getElementById('newTicketForm').addEventListener('submit', function(event) {
+    event.preventDefault();
+    const user = document.getElementById('user').value;
+    const status = document.getElementById('status').value;
+    createTicket({ user, status });
+  });
+
+  async function createTicket(ticketData) {
+    try {
+      const response = await fetch('/tickets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(ticketData)
+      });
+      const newTicket = await response.json();
+      console.log('Ticket creado:', newTicket);
+      loadTickets();
+    } catch (error) {
+      console.error('Error al crear el ticket:', error);
+    }
+  }
+
+  async function loadTickets(userId = '') {
+    try {
+        const response = await fetch(`/tickets?page=${currentPage}&limit=${limit}&userId=${userId}`);
+        const data = await response.json();
+        totalPages = data.totalPages; // Actualizar el total de páginas
+        displayTickets(data.tickets);
+        document.getElementById('currentPage').textContent = currentPage;
+        // Actualizar la visibilidad de los botones de paginación
+        document.querySelector('#pagination button[onclick="changePage(-1)"]').disabled = currentPage === 1;
+        document.querySelector('#pagination button[onclick="changePage(1)"]').disabled = currentPage >= totalPages;
+    } catch (error) {
+        console.error('Error al cargar los tickets:', error);
+    }
+  }
+
+  function displayTickets(tickets) {
+    const list = document.getElementById('ticketsList');
+    list.innerHTML = '';
+    // Crear la tabla y el encabezado
+    const table = document.createElement('table');
+    table.innerHTML = `
+        <tr>
+        <th>ID</th>
+        <th>Usuario</th>
+        <th>Estatus</th>
+        <th>Fecha de Creación</th>
+        <th>Fecha de Actualización</th>
+        </tr>
+    `;
+
+    // Agregar una fila por cada ticket
+    tickets.forEach(ticket => {
+        const row = table.insertRow();
+        row.innerHTML = `
+        <td>${ticket._id}</td>
+        <td>${ticket.user}</td>
+        <td>${ticket.status}</td>
+        <td>${new Date(ticket.createdAt).toLocaleString()}</td>
+        <td>${new Date(ticket.updatedAt).toLocaleString()}</td>
+        `;
+    });
+
+    // Agregar la tabla al DOM
+    list.appendChild(table);
+  }
+
+  function filterTickets() {
+    const user = document.getElementById('filterUser').value;
+    loadTickets(user);
+  }
+
+  function changePage(step) {
+    const newPage = currentPage + step;
+    if (newPage > 0 && newPage <= totalPages) {
+        currentPage = newPage;
+        loadTickets();
+    }
+  }
+
+  // Cargar tickets inicialmente
+  loadTickets();
+</script>
+</body>
+</html>
